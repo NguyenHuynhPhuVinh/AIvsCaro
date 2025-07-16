@@ -141,7 +141,7 @@ fastify.post("/api/game/:gameId/move", async (request, reply) => {
       gameContext: result.gameContext,
     });
 
-    // Nếu giờ là lượt AI, gửi context cho AI
+    // Nếu giờ là lượt AI, gọi pending callback
     if (
       result.gameContext.currentPlayer === 2 &&
       result.gameContext.gameStatus === "playing"
@@ -150,11 +150,7 @@ fastify.post("/api/game/:gameId/move", async (request, reply) => {
       const game = gameService.getGame(gameId);
       const aiPlayer = game?.players.find((p) => p.isAI);
       if (aiPlayer) {
-        socketService.sendToClient(
-          aiPlayer.id,
-          "your_turn",
-          result.gameContext
-        );
+        socketService.notifyAITurn(aiPlayer.id, result.gameContext);
       }
     }
 

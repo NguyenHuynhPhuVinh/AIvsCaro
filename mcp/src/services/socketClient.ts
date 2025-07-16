@@ -81,18 +81,12 @@ export class SocketClient {
 
       console.log(`Connecting AI ${request.name} (${request.id}) to game...`);
 
-      // Gửi yêu cầu kết nối và đợi phản hồi
+      // Gửi yêu cầu kết nối và đợi phản hồi (không có timeout - đợi vô hạn cho blocking wait)
       return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Connection timeout"));
-        }, 30000); // 30 giây timeout
-
         this.socket!.emit(
           "ai_connect",
           request,
           (response: ConnectResponse) => {
-            clearTimeout(timeout);
-
             if (response.success) {
               console.log("AI connected successfully:", response.message);
               if (response.gameContext) {
@@ -134,15 +128,9 @@ export class SocketClient {
         `Making move: (${request.row}, ${request.col}) for player ${request.playerId}`
       );
 
-      // Gửi nước đi và đợi phản hồi
+      // Gửi nước đi và đợi phản hồi (không có timeout - đợi vô hạn cho blocking wait)
       return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Move timeout"));
-        }, 15000); // 15 giây timeout
-
         this.socket!.emit("ai_move", request, (response: MoveResponse) => {
-          clearTimeout(timeout);
-
           if (response.success) {
             console.log("Move successful");
             if (response.gameContext) {

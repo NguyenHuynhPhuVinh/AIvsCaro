@@ -10,6 +10,7 @@ export class SocketService {
   private io: SocketIOServer;
   private gameService: GameService;
   private connectedClients: Map<string, Socket> = new Map();
+  private pendingAICallbacks: Map<string, Function> = new Map(); // Lưu callback của AI đang đợi
 
   constructor(io: SocketIOServer, gameService: GameService) {
     this.io = io;
@@ -91,18 +92,32 @@ export class SocketService {
       // Lưu socket connection
       this.connectedClients.set(aiPlayer.id, socket);
 
-      // Nếu game đã có đủ 2 players, gửi context cho AI
+      // Nếu game đã có đủ 2 players
       if (game.players.length === 2) {
         const gameContext = this.gameService.getGameContext(game);
 
-        // Gửi context cho AI ngay lập tức
-        callback({
-          success: true,
-          message: "Kết nối thành công",
+        // Broadcast game update cho frontend
+        this.io.emit("game_update", {
+          gameId: gameId,
           gameContext: gameContext,
         });
 
         console.log(`Game ${gameId} started with AI ${data.name}`);
+
+        // Lưu callback để gọi sau khi human đánh
+        this.pendingAICallbacks.set(aiPlayer.id, callback);
+
+        // Nếu là lượt AI (player 2) thì gửi context ngay
+        if (gameContext.currentPlayer === 2) {
+          callback({
+            success: true,
+            message: "Kết nối thành công - Đến lượt AI",
+            gameContext: gameContext,
+            playerId: aiPlayer.id, // Trả về playerId cho AI
+          });
+          this.pendingAICallbacks.delete(aiPlayer.id);
+        }
+        // Nếu là lượt human thì đợi
       } else {
         // Đợi player khác
         callback({
@@ -133,19 +148,38 @@ export class SocketService {
       const result = this.gameService.makeMove(data);
 
       if (result.success && result.gameContext) {
-        // Gửi kết quả về cho AI
-        callback({
-          success: true,
-          gameContext: result.gameContext,
-        });
-
-        // Broadcast game state cho các clients khác (frontend)
+        // Broadcast game state cho frontend
         this.io.emit("game_update", {
           gameId: data.gameId,
           gameContext: result.gameContext,
         });
 
-        console.log(`Move processed successfully for game ${data.gameId}`);
+        console.log(`AI move processed successfully for game ${data.gameId}`);
+
+        // Tìm AI player để lưu callback
+        const game = this.gameService.getGame(data.gameId);
+        const aiPlayer = game?.players.find((p) => p.isAI);
+
+        if (aiPlayer && result.gameContext.gameStatus === "playing") {
+          // Lưu callback để gọi sau khi human đánh
+          this.pendingAICallbacks.set(aiPlayer.id, callback);
+
+          // Nếu game đã kết thúc hoặc vẫn là lượt AI thì trả về ngay
+          if (result.gameContext.currentPlayer === 2) {
+            callback({
+              success: true,
+              gameContext: result.gameContext,
+            });
+            this.pendingAICallbacks.delete(aiPlayer.id);
+          }
+          // Nếu là lượt human thì đợi (không gọi callback)
+        } else {
+          // Game đã kết thúc, trả về ngay
+          callback({
+            success: true,
+            gameContext: result.gameContext,
+          });
+        }
       } else {
         callback({
           success: false,
@@ -213,5 +247,23 @@ export class SocketService {
    */
   public getConnectedClients(): string[] {
     return Array.from(this.connectedClients.keys());
+  }
+
+  /**
+   * Thông báo đến lượt AI và gọi pending callback
+   */
+  public notifyAITurn(aiPlayerId: string, gameContext: any): boolean {
+    const callback = this.pendingAICallbacks.get(aiPlayerId);
+    if (callback) {
+      callback({
+        success: true,
+        gameContext: gameContext,
+        playerId: aiPlayerId, // Trả về playerId cho AI
+      });
+      this.pendingAICallbacks.delete(aiPlayerId);
+      console.log(`Notified AI ${aiPlayerId} - their turn`);
+      return true;
+    }
+    return false;
   }
 }

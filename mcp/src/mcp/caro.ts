@@ -3,11 +3,15 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import { SocketClient } from "../services/socketClient.js";
 import { ConnectRequest, MoveRequest } from "../types/caro.js";
 
 // Khởi tạo socket client
 const socketClient = new SocketClient();
+
+// Lưu playerId để sử dụng cho các tool khác
+let currentPlayerId: string | null = null;
 
 /**
  * Đăng ký các công cụ MCP cho game Caro
@@ -19,14 +23,8 @@ export function registerCaroTools(server: McpServer) {
     "connect_to_caro_game",
     "Kết nối AI với backend game Caro và đợi nhận game context. Tool này sẽ blocking wait cho đến khi nhận được phản hồi từ backend.",
     {
-      id: {
-        type: "string",
-        description: "ID của game (ví dụ: game_1752668409034)",
-      },
-      name: {
-        type: "string",
-        description: "Tên của AI player",
-      },
+      id: z.string().describe("ID của game (ví dụ: game_1752668409034)"),
+      name: z.string().describe("Tên của AI player"),
     },
     async ({ id, name }) => {
       try {
@@ -35,17 +33,30 @@ export function registerCaroTools(server: McpServer) {
         const response = await socketClient.connectToGame(request);
 
         if (response.success && response.gameContext) {
+          // Lưu playerId để sử dụng cho các tool khác
+          if ((response as any).playerId) {
+            currentPlayerId = (response as any).playerId;
+          }
+
           return {
             content: [
               {
                 type: "text",
                 text: `🎮 Kết nối thành công với game Caro!
 
-**Thông tin game:**
+**📋 LUẬT CHƠI CARO:**
+- Bàn cờ 15x15 ô
+- 🔴 Human Player (Player 1) - đi trước
+- 🔵 AI Player (Player 2) - đi sau
+- **ĐIỀU KIỆN THẮNG: Tạo được 5 quân liên tiếp** (ngang/dọc/chéo)
+- Không có cấm thủ, chơi tự do
+
+**Thông tin game hiện tại:**
 - Game ID: ${response.gameContext.gameId}
 - Trạng thái: ${response.gameContext.gameStatus}
 - Lượt hiện tại: Player ${response.gameContext.currentPlayer}
 - AI là Player: ${response.gameContext.aiPlayer}
+- AI Player ID: ${(response as any).playerId || "Chưa có"}
 - Kích thước bàn cờ: ${response.gameContext.boardSize}x${
                   response.gameContext.boardSize
                 }
@@ -57,8 +68,12 @@ ${formatBoard(response.gameContext.board)}
 
 ${
   response.gameContext.currentPlayer === response.gameContext.aiPlayer
-    ? "🤖 Đến lượt AI! Hãy sử dụng tool 'make_caro_move' để đánh."
-    : "⏳ Đang đợi player khác..."
+    ? `🤖 Đến lượt AI! Hãy sử dụng tool 'make_caro_move' với:
+- gameId: ${response.gameContext.gameId}
+- playerId: ${(response as any).playerId || currentPlayerId}
+- row: [0-14]
+- col: [0-14]`
+    : "⏳ Đang đợi human player đánh nước đầu..."
 }
 
 **Message:** ${response.message || "Không có thông báo"}`,
@@ -95,22 +110,10 @@ ${
     "make_caro_move",
     "Thực hiện nước đi trong game Caro và đợi phản hồi từ backend. Tool này sẽ blocking wait cho đến khi nhận được kết quả.",
     {
-      gameId: {
-        type: "string",
-        description: "ID của game",
-      },
-      row: {
-        type: "number",
-        description: "Hàng (0-14)",
-      },
-      col: {
-        type: "number",
-        description: "Cột (0-14)",
-      },
-      playerId: {
-        type: "string",
-        description: "ID của AI player",
-      },
+      gameId: z.string().describe("ID của game"),
+      row: z.number().int().min(0).max(14).describe("Hàng (0-14)"),
+      col: z.number().int().min(0).max(14).describe("Cột (0-14)"),
+      playerId: z.string().describe("ID của AI player"),
     },
     async ({ gameId, row, col, playerId }) => {
       try {
