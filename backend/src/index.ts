@@ -71,7 +71,7 @@ fastify.get("/api/games", async (request, reply) => {
   };
 });
 
-// API để tạo game mới (cho frontend)
+// API để tạo game mới (cho frontend - Human vs AI)
 fastify.post("/api/game/create", async (request, reply) => {
   const { gameId } = request.body as { gameId?: string };
   const id = gameId || `game_${Date.now()}`;
@@ -84,8 +84,28 @@ fastify.post("/api/game/create", async (request, reply) => {
 
   const game = gameService.createGame(id);
   return {
-    message: "Game created successfully",
+    message: "Human vs AI game created successfully",
     game: gameService.getGameContext(game),
+    mode: "human-vs-ai",
+  };
+});
+
+// API để tạo game AI vs AI
+fastify.post("/api/game/create-ai-vs-ai", async (request, reply) => {
+  const { gameId } = request.body as { gameId?: string };
+  const id = gameId || `ai_game_${Date.now()}`;
+
+  const existingGame = gameService.getGame(id);
+  if (existingGame) {
+    reply.code(400);
+    return { error: "Game already exists" };
+  }
+
+  const game = gameService.createGame(id);
+  return {
+    message: "AI vs AI game created successfully",
+    game: gameService.getGameContext(game),
+    mode: "ai-vs-ai",
   };
 });
 
@@ -141,21 +161,26 @@ fastify.post("/api/game/:gameId/move", async (request, reply) => {
       gameContext: result.gameContext,
     });
 
-    // Tìm AI player
-    const game = gameService.getGame(gameId);
-    const aiPlayer = game?.players.find((p) => p.isAI);
+    // Tìm AI player có lượt tiếp theo (chỉ khi có gameContext)
+    if (result.gameContext) {
+      const game = gameService.getGame(gameId);
+      const nextAI = game?.players.find(
+        (p) => p.isAI && p.playerNumber === result.gameContext!.currentPlayer
+      );
 
-    if (aiPlayer) {
-      // Nếu giờ là lượt AI và game vẫn đang chơi
-      if (
-        result.gameContext.currentPlayer === 2 &&
-        result.gameContext.gameStatus === "playing"
-      ) {
-        socketService.notifyAITurn(aiPlayer.id, result.gameContext);
+      if (nextAI) {
+        // Nếu giờ là lượt AI và game vẫn đang chơi
+        if (result.gameContext.gameStatus === "playing") {
+          socketService.notifyAITurn(nextAI.id, result.gameContext);
+        }
       }
-      // Nếu game đã kết thúc (human thắng/hòa), cũng thông báo cho AI
-      else if (result.gameContext.gameStatus !== "playing") {
-        socketService.notifyAITurn(aiPlayer.id, result.gameContext);
+
+      // Nếu game đã kết thúc, thông báo cho tất cả AI đang đợi
+      if (result.gameContext.gameStatus !== "playing") {
+        const allAIs = game?.players.filter((p) => p.isAI) || [];
+        for (const ai of allAIs) {
+          socketService.notifyAITurn(ai.id, result.gameContext!);
+        }
       }
     }
 

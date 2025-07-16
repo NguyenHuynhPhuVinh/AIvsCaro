@@ -76,11 +76,15 @@ export class SocketService {
         name: data.name,
         socketId: socket.id,
         isAI: true,
-        playerNumber: 2, // AI luôn là player 2
+        playerNumber: 0, // Sẽ được set trong addPlayer
       };
 
-      // Thêm AI vào game
-      const success = this.gameService.addPlayer(gameId, aiPlayer);
+      // Thêm AI vào game với preferred player number
+      const success = this.gameService.addPlayer(
+        gameId,
+        aiPlayer,
+        data.preferredPlayerNumber
+      );
       if (!success) {
         callback({
           success: false,
@@ -104,26 +108,36 @@ export class SocketService {
 
         console.log(`Game ${gameId} started with AI ${data.name}`);
 
-        // Lưu callback để gọi sau khi human đánh
-        this.pendingAICallbacks.set(aiPlayer.id, callback);
+        // Tìm AI có lượt đầu tiên (Player 1)
+        const firstPlayerAI = game.players.find(
+          (p) => p.isAI && p.playerNumber === 1
+        );
 
-        // Nếu là lượt AI (player 2) thì gửi context ngay
-        if (gameContext.currentPlayer === 2) {
-          callback({
-            success: true,
-            message: "Kết nối thành công - Đến lượt AI",
-            gameContext: gameContext,
-            playerId: aiPlayer.id, // Trả về playerId cho AI
-          });
-          this.pendingAICallbacks.delete(aiPlayer.id);
+        if (firstPlayerAI) {
+          // Gọi callback của AI Player 1 để bắt đầu game
+          const firstPlayerCallback = this.pendingAICallbacks.get(
+            firstPlayerAI.id
+          );
+          if (firstPlayerCallback) {
+            firstPlayerCallback({
+              success: true,
+              message: `Game bắt đầu - Đến lượt AI Player 1`,
+              gameContext: gameContext,
+              playerId: firstPlayerAI.id,
+            });
+            this.pendingAICallbacks.delete(firstPlayerAI.id);
+          }
         }
-        // Nếu là lượt human thì đợi
+
+        // Lưu callback của AI vừa connect (nếu không phải Player 1)
+        if (aiPlayer.playerNumber !== 1) {
+          this.pendingAICallbacks.set(aiPlayer.id, callback);
+          // Không gọi callback - AI Player 2 sẽ đợi
+        }
       } else {
-        // Đợi player khác
-        callback({
-          success: true,
-          message: "Đang đợi player khác...",
-        });
+        // Lưu callback để gọi sau khi có đủ 2 players
+        this.pendingAICallbacks.set(aiPlayer.id, callback);
+        // Không gọi callback - AI sẽ đợi cho đến khi có player thứ 2
       }
     } catch (error) {
       console.error("Error in handleAIConnect:", error);
@@ -156,30 +170,49 @@ export class SocketService {
 
         console.log(`AI move processed successfully for game ${data.gameId}`);
 
-        // Tìm AI player để lưu callback
+        // Tìm AI player hiện tại (player vừa đánh)
         const game = this.gameService.getGame(data.gameId);
-        const aiPlayer = game?.players.find((p) => p.isAI);
+        const currentAI = game?.players.find((p) => p.id === data.playerId);
 
-        if (aiPlayer && result.gameContext.gameStatus === "playing") {
-          // Lưu callback để gọi sau khi human đánh
-          this.pendingAICallbacks.set(aiPlayer.id, callback);
+        if (currentAI && result.gameContext.gameStatus === "playing") {
+          // Lưu callback của AI vừa đánh để gọi sau
+          this.pendingAICallbacks.set(currentAI.id, callback);
 
-          // Nếu vẫn là lượt AI thì trả về ngay
-          if (result.gameContext.currentPlayer === 2) {
+          // Tìm AI có lượt tiếp theo
+          const nextAI = game?.players.find(
+            (p) => p.isAI && p.playerNumber === result.gameContext.currentPlayer
+          );
+
+          if (nextAI) {
+            // Gọi callback của AI có lượt tiếp theo
+            const nextCallback = this.pendingAICallbacks.get(nextAI.id);
+            if (nextCallback) {
+              nextCallback({
+                success: true,
+                message: `Đến lượt AI Player ${nextAI.playerNumber}`,
+                gameContext: result.gameContext,
+                playerId: nextAI.id,
+              });
+              this.pendingAICallbacks.delete(nextAI.id);
+            }
+          }
+
+          // Nếu vẫn là lượt của AI vừa đánh thì trả về ngay (trường hợp đặc biệt)
+          if (result.gameContext.currentPlayer === currentAI.playerNumber) {
             callback({
               success: true,
               gameContext: result.gameContext,
-              playerId: aiPlayer.id,
+              playerId: currentAI.id,
             });
-            this.pendingAICallbacks.delete(aiPlayer.id);
+            this.pendingAICallbacks.delete(currentAI.id);
           }
-          // Nếu là lượt human thì đợi (không gọi callback)
+          // Nếu là lượt AI khác thì đợi (không gọi callback cho AI vừa đánh)
         } else {
           // Game đã kết thúc (won/draw), trả về ngay
           callback({
             success: true,
             gameContext: result.gameContext,
-            playerId: aiPlayer?.id,
+            playerId: currentAI?.id,
           });
         }
       } else {

@@ -93,8 +93,15 @@ export default function GameBoard({
         <div>Game ID: {gameContext.gameId}</div>
         <div>Nước đi có thể: {gameContext.availableMoves.length}</div>
         <div className="flex items-center justify-center space-x-4">
-          <span>🔴 Bạn (Player 1)</span>
-          <span>🔵 AI (Player 2)</span>
+          <span>
+            🔴 Player 1 {gameContext.aiPlayer === 1 ? "(AI)" : "(Human)"}
+          </span>
+          <span>
+            🔵 Player 2 {gameContext.aiPlayer === 2 ? "(AI)" : "(Human/AI)"}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500">
+          Hỗ trợ Human vs AI và AI vs AI
         </div>
       </div>
     </div>

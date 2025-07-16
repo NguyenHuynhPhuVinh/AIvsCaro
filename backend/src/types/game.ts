@@ -7,7 +7,7 @@ export interface GameContext {
   board: number[][]; // 0: empty, 1: player1, 2: player2 (AI)
   currentPlayer: number; // 1 hoặc 2
   aiPlayer: number; // AI là player nào (luôn là 2)
-  gameStatus: 'waiting' | 'playing' | 'won' | 'draw';
+  gameStatus: "waiting" | "playing" | "won" | "draw";
   winner?: number;
   lastMove?: { row: number; col: number };
   availableMoves: { row: number; col: number }[];
@@ -27,7 +27,7 @@ export interface Game {
   players: Player[];
   board: number[][];
   currentPlayer: number;
-  status: 'waiting' | 'playing' | 'won' | 'draw';
+  status: "waiting" | "playing" | "won" | "draw";
   winner?: number;
   lastMove?: { row: number; col: number };
   boardSize: number;
@@ -44,6 +44,7 @@ export interface MoveRequest {
 export interface ConnectRequest {
   id: string;
   name: string;
+  preferredPlayerNumber?: number; // 1 hoặc 2, optional
 }
 
 export interface MoveResponse {

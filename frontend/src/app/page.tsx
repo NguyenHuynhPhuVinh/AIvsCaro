@@ -83,6 +83,28 @@ export default function Home() {
     }
   };
 
+  const createAIvsAIGame = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create AI vs AI game
+      const gameId = `ai_game_${Date.now()}`;
+      const createResult = await gameService.createAIvsAIGame({ gameId });
+
+      if (!createResult.success) {
+        throw new Error(createResult.message);
+      }
+
+      setGameContext(createResult.game!);
+    } catch (error) {
+      console.error("Error creating AI vs AI game:", error);
+      setError(error instanceof Error ? error.message : "Lỗi không xác định");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCellClick = async (row: number, col: number) => {
     if (!gameContext || gameContext.currentPlayer !== 1) {
       return;
@@ -172,15 +194,24 @@ export default function Home() {
             <div className="text-center">
               <div className="mb-6">
                 <p className="text-gray-600 mb-4">
-                  Chưa có game nào. Tạo game mới để bắt đầu chơi với AI.
+                  Chưa có game nào. Chọn chế độ chơi:
                 </p>
-                <button
-                  onClick={createNewGame}
-                  disabled={isLoading || serverStatus !== "online"}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoading ? "Đang tạo game..." : "Tạo Game Mới"}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={createNewGame}
+                    disabled={isLoading || serverStatus !== "online"}
+                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isLoading ? "Đang tạo game..." : "🔴 Human vs AI"}
+                  </button>
+                  <button
+                    onClick={createAIvsAIGame}
+                    disabled={isLoading || serverStatus !== "online"}
+                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isLoading ? "Đang tạo game..." : "🤖 AI vs AI"}
+                  </button>
+                </div>
               </div>
 
               {serverStatus === "offline" && (
@@ -198,7 +229,15 @@ export default function Home() {
                   disabled={isLoading}
                   className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
                 >
-                  Game Mới
+                  🔴 Human vs AI
+                </button>
+
+                <button
+                  onClick={createAIvsAIGame}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                >
+                  🤖 AI vs AI
                 </button>
 
                 <button

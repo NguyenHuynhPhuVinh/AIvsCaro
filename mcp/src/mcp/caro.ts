@@ -21,35 +21,47 @@ export function registerCaroTools(server: McpServer) {
   // Tool 1: Kết nối với backend và đợi game context
   server.tool(
     "connect_to_caro_game",
-    "Kết nối AI với backend game Caro và đợi nhận game context. Tool này sẽ blocking wait cho đến khi nhận được phản hồi từ backend.",
+    "Kết nối AI với backend game Caro và đợi nhận game context. Tool này sẽ blocking wait cho đến khi nhận được phản hồi từ backend. Hỗ trợ AI vs AI.",
     {
       id: z.string().describe("ID của game (ví dụ: game_1752668409034)"),
       name: z.string().describe("Tên của AI player"),
+      preferredPlayerNumber: z
+        .number()
+        .int()
+        .min(1)
+        .max(2)
+        .optional()
+        .describe(
+          "Player number mong muốn (1 hoặc 2). Player 1 đi trước, Player 2 đi sau. Optional - nếu không chọn sẽ tự động assign."
+        ),
     },
-    async ({ id, name }) => {
+    async ({ id, name, preferredPlayerNumber }) => {
       try {
         // Sử dụng client mặc định
-        const request: ConnectRequest = { id, name };
+        const request: ConnectRequest = { id, name, preferredPlayerNumber };
         const response = await socketClient.connectToGame(request);
 
-        if (response.success && response.gameContext) {
+        if (response.success) {
           // Lưu playerId để sử dụng cho các tool khác
           if ((response as any).playerId) {
             currentPlayerId = (response as any).playerId;
           }
 
-          return {
-            content: [
-              {
-                type: "text",
-                text: `🎮 Kết nối thành công với game Caro!
+          // Nếu có gameContext thì hiển thị đầy đủ, nếu không thì chỉ hiển thị thông báo
+          if (response.gameContext) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `🎮 Kết nối thành công với game Caro!
 
 **📋 LUẬT CHƠI CARO:**
 - Bàn cờ 15x15 ô
-- 🔴 Human Player (Player 1) - đi trước
-- 🔵 AI Player (Player 2) - đi sau
+- 🔴 Player 1 - đi trước (có thể là Human hoặc AI)
+- 🔵 Player 2 - đi sau (có thể là Human hoặc AI)
 - **ĐIỀU KIỆN THẮNG: Tạo được 5 quân liên tiếp** (ngang/dọc/chéo)
 - Không có cấm thủ, chơi tự do
+- **HỖ TRỢ AI vs AI**: Có thể có 2 AI cùng chơi với nhau
 
 **🧠 CHIẾN THUẬT CHO AI:**
 - **NGHIÊM TÚC**: Đây là trận đấu thực sự, hãy suy luận kỹ lưỡng
@@ -62,11 +74,11 @@ export function registerCaroTools(server: McpServer) {
 - Game ID: ${response.gameContext.gameId}
 - Trạng thái: ${response.gameContext.gameStatus}
 - Lượt hiện tại: Player ${response.gameContext.currentPlayer}
-- AI là Player: ${response.gameContext.aiPlayer}
+- AI này là Player: ${preferredPlayerNumber || "Auto-assigned"}
 - AI Player ID: ${(response as any).playerId || "Chưa có"}
 - Kích thước bàn cờ: ${response.gameContext.boardSize}x${
-                  response.gameContext.boardSize
-                }
+                    response.gameContext.boardSize
+                  }
 
 **Bàn cờ hiện tại:**
 ${formatBoard(response.gameContext.board)}
@@ -74,19 +86,36 @@ ${formatBoard(response.gameContext.board)}
 **Nước đi có thể:** ${response.gameContext.availableMoves.length} vị trí
 
 ${
-  response.gameContext.currentPlayer === response.gameContext.aiPlayer
-    ? `🤖 Đến lượt AI! Hãy sử dụng tool 'make_caro_move' với:
+  (response as any).playerId &&
+  response.gameContext.currentPlayer ===
+    (preferredPlayerNumber || response.gameContext.aiPlayer)
+    ? `🤖 Đến lượt AI này! Hãy sử dụng tool 'make_caro_move' với:
 - gameId: ${response.gameContext.gameId}
 - playerId: ${(response as any).playerId || currentPlayerId}
 - row: [0-14]
 - col: [0-14]`
-    : "⏳ Đang đợi human player đánh nước đầu..."
+    : "⏳ Đang đợi player khác đánh..."
 }
 
 **Message:** ${response.message || "Không có thông báo"}`,
-              },
-            ],
-          };
+                },
+              ],
+            };
+          } else {
+            // Chưa có gameContext - trường hợp này không nên xảy ra với blocking wait
+            // Nhưng để phòng trường hợp lỗi
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `⚠️ Kết nối thành công nhưng chưa nhận được game context.
+
+**Message:** ${response.message || "Không có thông báo"}
+**Player ID:** ${(response as any).playerId || "Chưa có"}`,
+                },
+              ],
+            };
+          }
         } else {
           return {
             content: [
