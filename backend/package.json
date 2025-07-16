@@ -1,0 +1,39 @@
+{
+  "name": "aivscaro-backend",
+  "version": "1.0.0",
+  "description": "Backend cho game AI vs Caro với Fastify và Socket.io",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src/**/*.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.4.0",
+    "@fastify/websocket": "^11.2.0",
+    "socket.io": "^4.8.1",
+    "cors": "^2.8.5",
+    "@fastify/cors": "^11.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "@types/cors": "^2.8.19",
+    "typescript": "^5.8.3",
+    "tsx": "^4.20.3",
+    "eslint": "^9.31.0",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0"
+  },
+  "keywords": [
+    "fastify",
+    "socket.io",
+    "caro",
+    "ai",
+    "game"
+  ],
+  "author": "TomiSakae",
+  "license": "MIT"
+}

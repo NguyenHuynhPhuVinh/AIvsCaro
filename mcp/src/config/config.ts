@@ -21,7 +21,7 @@ export const ENV = {
  */
 export const APP_CONFIG = {
   // Tên ứng dụng
-  NAME: "MCP Server",
+  NAME: "CaroMCP",
 
   // Phiên bản
   VERSION: "1.0.0",
