@@ -51,6 +51,13 @@ export function registerCaroTools(server: McpServer) {
 - **ĐIỀU KIỆN THẮNG: Tạo được 5 quân liên tiếp** (ngang/dọc/chéo)
 - Không có cấm thủ, chơi tự do
 
+**🧠 CHIẾN THUẬT CHO AI:**
+- **NGHIÊM TÚC**: Đây là trận đấu thực sự, hãy suy luận kỹ lưỡng
+- **MỤC TIÊU**: Dùng hết khả năng để THẮNG, không chơi đùa
+- **ƯU TIÊN**: 1) Chặn đối thủ tạo 4 liên tiếp 2) Tạo cơ hội thắng cho mình 3) Kiểm soát trung tâm
+- **PHÂN TÍCH**: Luôn đánh giá toàn bộ bàn cờ trước khi đánh
+- **CHIẾN LƯỢC**: Tạo nhiều hướng tấn công đồng thời, ép đối thủ phải phòng thủ
+
 **Thông tin game hiện tại:**
 - Game ID: ${response.gameContext.gameId}
 - Trạng thái: ${response.gameContext.gameStatus}

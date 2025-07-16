@@ -164,20 +164,22 @@ export class SocketService {
           // Lưu callback để gọi sau khi human đánh
           this.pendingAICallbacks.set(aiPlayer.id, callback);
 
-          // Nếu game đã kết thúc hoặc vẫn là lượt AI thì trả về ngay
+          // Nếu vẫn là lượt AI thì trả về ngay
           if (result.gameContext.currentPlayer === 2) {
             callback({
               success: true,
               gameContext: result.gameContext,
+              playerId: aiPlayer.id,
             });
             this.pendingAICallbacks.delete(aiPlayer.id);
           }
           // Nếu là lượt human thì đợi (không gọi callback)
         } else {
-          // Game đã kết thúc, trả về ngay
+          // Game đã kết thúc (won/draw), trả về ngay
           callback({
             success: true,
             gameContext: result.gameContext,
+            playerId: aiPlayer?.id,
           });
         }
       } else {

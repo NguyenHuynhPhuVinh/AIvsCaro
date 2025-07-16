@@ -141,15 +141,20 @@ fastify.post("/api/game/:gameId/move", async (request, reply) => {
       gameContext: result.gameContext,
     });
 
-    // Nếu giờ là lượt AI, gọi pending callback
-    if (
-      result.gameContext.currentPlayer === 2 &&
-      result.gameContext.gameStatus === "playing"
-    ) {
-      // Tìm AI player
-      const game = gameService.getGame(gameId);
-      const aiPlayer = game?.players.find((p) => p.isAI);
-      if (aiPlayer) {
+    // Tìm AI player
+    const game = gameService.getGame(gameId);
+    const aiPlayer = game?.players.find((p) => p.isAI);
+
+    if (aiPlayer) {
+      // Nếu giờ là lượt AI và game vẫn đang chơi
+      if (
+        result.gameContext.currentPlayer === 2 &&
+        result.gameContext.gameStatus === "playing"
+      ) {
+        socketService.notifyAITurn(aiPlayer.id, result.gameContext);
+      }
+      // Nếu game đã kết thúc (human thắng/hòa), cũng thông báo cho AI
+      else if (result.gameContext.gameStatus !== "playing") {
         socketService.notifyAITurn(aiPlayer.id, result.gameContext);
       }
     }
